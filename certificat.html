@@ -1,0 +1,186 @@
+<!DOCTYPE html>
+<html lang="fr-CA">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow">
+<meta name="referrer" content="no-referrer">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; img-src data: blob: https:; font-src data: https:; connect-src https://*.supabase.co http://127.0.0.1:* http://localhost:*; base-uri 'none'; form-action 'none'">
+<title>Certificat de paiement</title>
+<style>
+html,body{margin:0}
+body{background:#EEF2F6;font:14px/1.5 "Segoe UI",system-ui,-apple-system,Arial,sans-serif;color:#0F172A}
+.jtop{background:#1A3A5C;color:#fff;padding:12px 18px}.jtop b{font-size:16px}.jtop span{opacity:.85;font-size:12.5px}
+.msg{max-width:640px;margin:40px auto;background:#fff;border:1px solid #CBD5E1;border-radius:12px;padding:22px 24px;font-size:15px}
+.msg h1{font-size:19px;color:#1A3A5C;margin:0 0 8px}
+.carte{max-width:820px;margin:14px auto 0;background:#fff;border:1px solid #CBD5E1;border-radius:10px;padding:16px 20px}
+.carte h2{font-size:16px;font-weight:800;color:#1A3A5C;margin:0 0 8px}
+table.dm{width:100%;border-collapse:collapse;font-size:13.5px}
+table.dm td{padding:5px 8px;border-bottom:1px solid #E2E8F0}table.dm td.n{text-align:right;white-space:nowrap;font-variant-numeric:tabular-nums}
+table.dm tr.big td{font-weight:700;background:#F1F5F9}
+details{margin-top:10px}summary{cursor:pointer;color:#1A3A5C;font-weight:600}
+#doc{overflow-x:auto;margin-top:8px;border-top:1px dashed #CBD5E1;padding-top:8px}
+.form{border:2px solid #1A3A5C;margin-bottom:40px}
+.g2{display:grid;grid-template-columns:1fr 1fr;gap:10px 14px;margin:8px 0}
+.form label{display:block;font-size:12.5px;font-weight:600;color:#334155}
+.form input[type=text],.form input[type=email],.form input[type=number],.form input[type=date],.form select,.form textarea{width:100%;box-sizing:border-box;border:1px solid #94A3B8;border-radius:6px;padding:7px 8px;font:14px "Segoe UI",Arial,sans-serif;color:#0F172A;background:#fff;margin-top:3px}
+.ou{display:flex;align-items:center;gap:10px;margin:14px 0 6px;color:#475569;font-size:12.5px}.ou:before,.ou:after{content:"";flex:1;border-top:1px solid #CBD5E1}
+#pad{width:100%;height:150px;border:1px solid #64748B;border-radius:6px;background:#fff;touch-action:none;display:block;cursor:crosshair;margin-top:4px}
+.padbar{display:flex;justify-content:space-between;align-items:center;font-size:12px;color:#475569;margin-top:4px}
+.bt{display:inline-block;border:1px solid #1A3A5C;background:#fff;color:#1A3A5C;border-radius:8px;padding:9px 16px;font:600 14px "Segoe UI",Arial,sans-serif;cursor:pointer;text-decoration:none;margin:8px 8px 0 0}
+.bt.pri{background:#1A3A5C;color:#fff}.bt.mini{margin:4px 0 0;padding:3px 10px;font-size:12px}.bt[disabled]{opacity:.6;cursor:wait}
+.err{color:#B91C1C;font-weight:600}.aide{font-size:12px;color:#64748B;font-weight:400}
+.okb{background:#F0FDF4;border:1px solid #86EFAC;border-radius:8px;padding:10px 12px;margin-top:12px}
+@media (max-width:700px){.g2{grid-template-columns:1fr}.carte{margin-left:6px;margin-right:6px;padding:12px}}
+@media print{.noprint,.jtop{display:none!important}body{background:#fff}.carte{border:0;margin:0;max-width:none}}
+</style>
+<style id="cssDoc"></style>
+</head>
+<body>
+<div class="jtop" id="haut"><b>Certificat de paiement</b></div>
+<div class="msg" id="attente">Ouverture de la demande de paiement…</div>
+<div class="carte" id="demande" style="display:none"></div>
+<section class="carte form" id="formulaire" style="display:none">
+  <h2>Votre certificat de paiement</h2>
+  <div class="g2">
+    <label>Montant certifié (avant taxes)<input type="number" id="montant" step="0.01" min="0" inputmode="decimal"><button type="button" class="bt mini noprint" id="memeMontant">Même montant que la demande</button></label>
+    <label>Date du certificat<input type="date" id="date"></label>
+    <label>Nom<input type="text" id="nom" autocomplete="name"></label>
+    <label>Qualité<select id="qualite"><option>Client</option><option>Architecte</option><option>Ingénieur</option><option>Gérant de projet</option><option>Professionnel</option><option>Autre</option></select></label>
+    <label>Firme ou organisation (facultatif)<input type="text" id="organisation" autocomplete="organization"></label>
+    <label>Courriel<input type="email" id="courriel" autocomplete="email"></label>
+  </div>
+  <label>Remarques ou réserves (facultatif)<textarea id="note" rows="3" placeholder="ex. retenue particulière, travaux non acceptés, montant différent : expliquez"></textarea></label>
+  <label style="margin-top:10px">Signature <span class="aide">(avec la souris ou le doigt)</span></label>
+  <canvas id="pad" aria-label="Zone de signature"></canvas>
+  <div class="padbar"><span>Signez dans le cadre.</span><button type="button" class="bt mini" id="effacer">Effacer</button></div>
+  <div class="ou">ou</div>
+  <label>Joindre votre certificat signé <span class="aide">(PDF ou image, 5 Mo au plus ; remplace la signature ci-dessus)</span><input type="file" id="fichier" accept="application/pdf,image/*"></label>
+  <div id="fichInfo" class="aide"></div>
+  <label style="display:flex;gap:8px;align-items:flex-start;font-weight:400;margin-top:12px"><input type="checkbox" id="confirme"> <span>Je confirme le montant certifié ci-dessus pour cette demande de paiement.</span></label>
+  <div id="manque" class="err" style="margin-top:6px"></div>
+  <button class="bt pri" type="button" id="envoyer">Envoyer le certificat</button>
+  <div id="fin" style="display:none"></div>
+</section>
+<script>
+/* JH Estimation Pro V93 — page publique « certificat de paiement » (24 nov. 2026).
+   Ouverte depuis le lien du courriel (certificat.html#j=<jeton>) par le client ou le professionnel (architecte, ingénieur). Lit la
+   demande de paiement par la fonction Supabase externe_lire (rôle anonyme, aucun accès à la table), recueille le montant certifié, la
+   date, le nom, la signature ou un fichier joint, puis l'envoie par externe_repondre (une seule réponse par lien). */
+(function () {
+  'use strict';
+  var PROD = { url: 'https://kupibvsswdxpgvnflmsd.supabase.co', cle: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imt1cGlidnNzd2R4cGd2bmZsbXNkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTU0Mjk5MjgsImV4cCI6MjExMTAwNTkyOH0.JcSs4N_bbUe67kBpVVjHx3ALBzGeBTa99y8yTuCv8aU' };
+  var BANC = location.protocol.indexOf('http') === 0 && /^(127\.0\.0\.1|localhost)$/.test(location.hostname) && !!window.JH92_BANC;
+  var CFG = BANC ? { url: location.origin, cle: 'banc-cle-anon' } : PROD;
+  var MAX = 5 * 1024 * 1024;
+  var $ = function (id) { return document.getElementById(id); };
+  function esc(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); }
+  function argent(v) { if (v === null || v === undefined || v === '' || isNaN(+v)) return '—'; return (+v).toLocaleString('fr-CA', { style: 'currency', currency: 'CAD' }); }
+  function dateFr(s) { if (!s) return ''; var d = new Date(String(s).length === 10 ? s + 'T12:00:00' : s); return isNaN(d) ? String(s) : d.toLocaleDateString('fr-CA', { year: 'numeric', month: 'long', day: 'numeric' }); }
+  function message(titre, texte) { $('attente').style.display = ''; $('attente').innerHTML = '<h1>' + esc(titre) + '</h1><div>' + texte + '</div>'; $('demande').style.display = 'none'; $('formulaire').style.display = 'none'; }
+  function jeton() { var m = /(?:^|[#&?])j=([0-9a-fA-F-]{36})/.exec(location.hash + '&' + location.search); return m ? m[1] : ''; }
+  function rpc(nom, corps) {
+    return fetch(CFG.url + '/rest/v1/rpc/' + nom, { method: 'POST', cache: 'no-store', headers: { apikey: CFG.cle, Authorization: 'Bearer ' + CFG.cle, 'Content-Type': 'application/json' }, body: JSON.stringify(corps) })
+      .then(function (r) { return r.text().then(function (t) { var j = null; try { j = t ? JSON.parse(t) : null; } catch (e) { } if (!r.ok) { var x = new Error((j && (j.message || j.msg)) || ('erreur ' + r.status)); x.status = r.status; throw x; } return j; }); });
+  }
+  function nettoyer(html) {
+    var d = new DOMParser().parseFromString('<div id="r">' + String(html || '') + '</div>', 'text/html'); var r = d.getElementById('r'); if (!r) return '';
+    Array.prototype.forEach.call(r.querySelectorAll('script,iframe,frame,frameset,object,embed,link,meta,base,form,noscript,template,style'), function (e) { e.remove(); });
+    Array.prototype.forEach.call(r.querySelectorAll('*'), function (e) {
+      Array.prototype.slice.call(e.attributes).forEach(function (a) {
+        var n = a.name.toLowerCase(), v = String(a.value || '');
+        if (n.indexOf('on') === 0 || n === 'formaction' || n === 'srcdoc') e.removeAttribute(a.name);
+        else if ((n === 'href' || n === 'src' || n === 'xlink:href' || n === 'action' || n === 'background' || n === 'poster') && !/^(https:|data:image\/|#)/i.test(v.trim())) e.removeAttribute(a.name);
+      });
+      if (e.tagName === 'A') { e.setAttribute('target', '_blank'); e.setAttribute('rel', 'noopener noreferrer'); }
+      if (/^(INPUT|SELECT|TEXTAREA|BUTTON)$/.test(e.tagName)) e.setAttribute('disabled', '');
+    });
+    return r.innerHTML;
+  }
+  var cssPropre = function (c) { return String(c || '').replace(/@import[^;]*;?/gi, '').replace(/expression\s*\(/gi, '(').replace(/url\(\s*['"]?\s*(?!data:image\/)[^)]*\)/gi, 'none'); };
+
+  var J = jeton(), C = null, trace = false, FICH = null;
+  function demarrer() {
+    if (!BANC && /__SB_/.test(PROD.url + PROD.cle)) { message('Page incomplète', 'Cette page n\'a pas l\'adresse du serveur. Communiquez avec l\'entreprise qui vous a écrit.'); return; }
+    if (!J) { message('Lien incomplet', 'L\'adresse de cette page doit se terminer par le code du lien reçu par courriel (après <b>#j=</b>). Ouvrez de nouveau le lien du courriel ou copiez l\'adresse au complet.'); return; }
+    rpc('externe_lire', { p_jeton: J }).then(function (o) {
+      if (!o || !o.ok) { refus(o || {}); return; }
+      if (o.type !== 'certificat') { message('Ce lien n\'est pas un certificat de paiement', 'Ce lien sert à signer un contrat : <a href="signer.html#j=' + esc(J) + '">ouvrir le contrat</a>.'); return; }
+      C = o.contenu || {}; montrer(o);
+    }, function (e) { message('Connexion impossible', 'La demande de paiement n\'a pas pu être lue (' + esc(e.message || e) + '). Vérifiez votre connexion Internet, puis rechargez la page.'); });
+  }
+  function refus(o) {
+    if (o.raison === 'repondu') message('Certificat déjà reçu', 'Votre certificat pour cette demande de paiement a déjà été reçu' + (o.repondu_le ? ' le ' + esc(new Date(o.repondu_le).toLocaleString('fr-CA')) : '') + '. Merci ! Pour le changer, communiquez avec l\'entreprise.');
+    else if (o.raison === 'expire') message('Lien expiré', 'Ce lien a expiré' + (o.expire ? ' le ' + esc(new Date(o.expire).toLocaleDateString('fr-CA')) : '') + '. Demandez un nouveau lien à l\'entreprise.');
+    else if (o.raison === 'annule') message('Lien retiré', 'Ce lien a été retiré par l\'entreprise. Communiquez avec elle au besoin.');
+    else message('Lien non valide', 'Ce lien n\'est pas valide. Ouvrez de nouveau le lien du courriel ou copiez l\'adresse au complet ; sinon, demandez un nouveau lien à l\'entreprise.');
+  }
+  function montrer(o) {
+    var E = C.entreprise || {}, P = C.projet || {}, D = C.demande || {};
+    document.title = 'Certificat de paiement — ' + (D.no || '') + ' — ' + (P.nom || '');
+    $('haut').innerHTML = '<b>' + esc(E.nom || 'L\'entreprise') + '</b> vous demande de certifier une demande de paiement<br><span>Projet ' + esc((P.no ? '#' + P.no + ' ' : '') + (P.nom || '')) + (P.adresse ? ' · ' + esc(P.adresse) : '') + (C.envoyeLe ? ' · envoyé le ' + esc(C.envoyeLe) : '') + (o.expire ? ' · lien valide jusqu\'au ' + esc(new Date(o.expire).toLocaleDateString('fr-CA')) : '') + '</span>';
+    var L = function (lab, v, cls) { return v === null || v === undefined || v === '' ? '' : '<tr class="' + (cls || '') + '"><td>' + esc(lab) + '</td><td class="n">' + esc(argent(v)) + '</td></tr>'; };
+    var h = '<h2>Demande de paiement ' + esc(D.no || '') + (D.date ? ' du ' + esc(dateFr(D.date)) : '') + '</h2>' +
+      (D.du || D.au ? '<div class="aide" style="margin-bottom:6px">Période : ' + esc([dateFr(D.du), dateFr(D.au)].filter(Boolean).join(' au ')) + '</div>' : '') +
+      (C.message ? '<p>' + esc(C.message).replace(/\n/g, '<br>') + '</p>' : '') +
+      '<table class="dm">' + L('Prix révisé du contrat', D.revise) + L('Travaux exécutés à ce jour', D.travaux) + L('Retenue', D.retenue) + L('Présente demande avant taxes', D.presente, 'big') + L('TPS', D.tps) + L('TVQ', D.tvq) + L('Présente demande taxes comprises', D.ttc) + '</table>';
+    if (C.document && C.document.sheet) { h += '<details><summary>Voir la demande de paiement complète</summary><div id="doc" class="sheet">' + nettoyer(C.document.sheet) + '</div></details>'; $('cssDoc').textContent = cssPropre(C.document.css); }
+    h += '<div class="aide" style="margin-top:8px">Entreprise : ' + esc(E.nom || '') + (E.adresse ? ' · ' + esc(E.adresse) : '') + (E.tel ? ' · ' + esc(E.tel) : '') + (E.courriel ? ' · ' + esc(E.courriel) : '') + (E.rbq ? ' · RBQ ' + esc(E.rbq) : '') + '</div>';
+    $('demande').innerHTML = h; $('demande').style.display = ''; $('attente').style.display = 'none'; $('formulaire').style.display = '';
+    var dst = C.dest || {}; $('nom').value = dst.nom || ''; $('courriel').value = dst.courriel || '';
+    if (dst.qualite) { var q = $('qualite'); for (var i = 0; i < q.options.length; i++) if (q.options[i].text === dst.qualite) q.selectedIndex = i; }
+    var d = new Date(), z = function (n) { return ('0' + n).slice(-2); }; $('date').value = d.getFullYear() + '-' + z(d.getMonth() + 1) + '-' + z(d.getDate());
+    $('memeMontant').onclick = function () { if (D.presente !== null && D.presente !== undefined && D.presente !== '') $('montant').value = (Math.round(+D.presente * 100) / 100).toFixed(2); };
+    pad();
+  }
+  var cv, ctx;
+  function pad() {
+    cv = $('pad'); ctx = cv.getContext('2d'); var down = false;
+    function taille() { var r = cv.getBoundingClientRect(), dpr = window.devicePixelRatio || 1, img = trace ? cv.toDataURL() : null; cv.width = Math.max(1, r.width * dpr); cv.height = Math.max(1, r.height * dpr); ctx.setTransform(dpr, 0, 0, dpr, 0, 0); ctx.lineWidth = 2.2; ctx.lineCap = 'round'; ctx.lineJoin = 'round'; ctx.strokeStyle = '#0F172A'; if (img) { var im = new Image(); im.onload = function () { ctx.drawImage(im, 0, 0, r.width, r.height); }; im.src = img; } }
+    window.addEventListener('resize', taille); taille();
+    function pt(e) { var r = cv.getBoundingClientRect(); return { x: e.clientX - r.left, y: e.clientY - r.top }; }
+    cv.addEventListener('pointerdown', function (e) { down = true; try { cv.setPointerCapture(e.pointerId); } catch (x) { } var q = pt(e); ctx.beginPath(); ctx.moveTo(q.x, q.y); e.preventDefault(); });
+    cv.addEventListener('pointermove', function (e) { if (!down) return; var q = pt(e); ctx.lineTo(q.x, q.y); ctx.stroke(); trace = true; e.preventDefault(); });
+    ['pointerup', 'pointercancel', 'pointerleave'].forEach(function (t) { cv.addEventListener(t, function () { down = false; }); });
+    $('effacer').onclick = function () { ctx.clearRect(0, 0, cv.width, cv.height); trace = false; };
+  }
+  $('fichier').onchange = function () {
+    var f = this.files && this.files[0]; FICH = null; $('fichInfo').textContent = '';
+    if (!f) return;
+    if (f.size > MAX) { this.value = ''; $('fichInfo').textContent = 'Fichier trop gros (' + Math.round(f.size / 1048576 * 10) / 10 + ' Mo) : 5 Mo au plus.'; return; }
+    if (!/^(application\/pdf|image\/)/.test(f.type || '')) { this.value = ''; $('fichInfo').textContent = 'Seuls un PDF ou une image sont acceptés.'; return; }
+    var rd = new FileReader();
+    rd.onload = function () { var s = String(rd.result || ''); var i = s.indexOf(','); FICH = { nom: f.name, type: f.type, taille: f.size, b64: i >= 0 ? s.slice(i + 1) : '' }; $('fichInfo').textContent = 'Joint : ' + f.name + ' (' + Math.max(1, Math.round(f.size / 1024)) + ' ko).'; };
+    rd.onerror = function () { $('fichInfo').textContent = 'Lecture du fichier impossible.'; };
+    rd.readAsDataURL(f);
+  };
+  var ENVOI = false;
+  $('envoyer').onclick = function () {
+    if (ENVOI || !C) return;
+    var m = [], mt = $('montant').value.trim();
+    if (!$('nom').value.trim()) m.push('votre nom');
+    if (!FICH && mt === '') m.push('le montant certifié (ou votre certificat signé en fichier joint)');
+    if (mt !== '' && !(+mt >= 0)) m.push('un montant certifié valide');
+    if (!FICH && !trace) m.push('votre signature (ou votre certificat signé en fichier joint)');
+    if (!$('confirme').checked) m.push('la case de confirmation');
+    if (m.length) { $('manque').textContent = 'Il manque : ' + m.join(', ') + '.'; return; }
+    $('manque').textContent = '';
+    if (!confirm('Envoyer votre certificat de paiement ?\n\nUne seule réponse est possible par lien.')) return;
+    var D = C.demande || {};
+    var R = { type: 'jh-certificat-reponse', v: 1, demande: { id: D.id || '', no: D.no || '' }, montant: mt === '' ? null : Math.round(+mt * 100) / 100, date: $('date').value || '', nom: $('nom').value.trim(), qualite: $('qualite').value, organisation: $('organisation').value.trim(), courriel: $('courriel').value.trim(), note: $('note').value.trim(),
+      signature: trace ? cv.toDataURL('image/png') : '', fichier: FICH, confirme: true, signeLe: new Date().toISOString(), tz: (window.Intl && Intl.DateTimeFormat().resolvedOptions().timeZone) || '', ua: navigator.userAgent };
+    ENVOI = true; $('envoyer').disabled = true; $('envoyer').textContent = 'Envoi…';
+    rpc('externe_repondre', { p_jeton: J, p_reponse: R }).then(function (o) {
+      ENVOI = false;
+      if (!o || !o.ok) { $('envoyer').disabled = false; $('envoyer').textContent = 'Envoyer le certificat'; if (o && (o.raison === 'repondu' || o.raison === 'expire' || o.raison === 'annule')) { refus(o); return; } $('manque').textContent = 'Envoi refusé par le serveur (' + ((o && o.raison) === 'trop_gros' ? 'fichier trop gros' : esc((o && o.raison) || 'inconnu')) + ').'; return; }
+      Array.prototype.forEach.call(document.querySelectorAll('#formulaire input,#formulaire select,#formulaire textarea,#formulaire button'), function (e) { e.disabled = true; });
+      $('envoyer').style.display = 'none'; $('fin').style.display = '';
+      $('fin').innerHTML = '<div class="okb"><b>Merci ! Votre certificat est transmis à ' + esc((C.entreprise && C.entreprise.nom) || 'l\'entreprise') + '</b> (reçu le ' + esc(new Date(o.repondu_le || Date.now()).toLocaleString('fr-CA')) + '). Vous n\'avez rien à renvoyer.</div><button class="bt pri noprint" type="button" id="imprimer">Imprimer ou enregistrer en PDF</button>';
+      $('imprimer').disabled = false; $('imprimer').onclick = function () { window.print(); };
+    }, function (e) { ENVOI = false; $('envoyer').disabled = false; $('envoyer').textContent = 'Envoyer le certificat'; $('manque').textContent = 'Envoi impossible (' + (e.message || e) + ') : vérifiez votre connexion Internet et réessayez.'; });
+  };
+  demarrer();
+})();
+</script>
+</body>
+</html>
