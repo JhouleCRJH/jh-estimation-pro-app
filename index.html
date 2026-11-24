@@ -1,0 +1,196 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow">
+<title>JH Estimation Pro</title>
+<style>
+html,body{margin:0;height:100%;font-family:"Segoe UI",system-ui,-apple-system,Arial,sans-serif}
+#jh92Login{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;background:linear-gradient(135deg,#0F2740 0%,#1A3A5C 55%,#24507D 100%)}
+.jh92-carte{width:min(420px,92vw);background:#fff;border-radius:16px;box-shadow:0 20px 60px rgba(0,0,0,.35);padding:28px 30px 20px;color:#1A3A5C}
+.jh92-carte h1{font-size:22px;margin:0 0 2px;font-weight:800;letter-spacing:.2px;color:#1A3A5C}
+.jh92-sous{font-size:13px;color:#64748B;margin-bottom:16px}
+.jh92-carte label{display:block;font-size:12.5px;color:#475569;margin:10px 0 4px;font-weight:600}
+.jh92-carte input[type=email],.jh92-carte input[type=password]{width:100%;box-sizing:border-box;padding:10px 12px;border:1px solid #CBD5E1;border-radius:9px;font-size:14px;color:#0F172A;background:#fff}
+.jh92-carte input:focus{outline:2px solid #2563EB;border-color:#2563EB}
+.jh92-carte .jh92-reste{display:flex;align-items:center;gap:7px;font-size:12.5px;color:#334155;margin:12px 0 2px;font-weight:400}
+.jh92-btn{width:100%;margin-top:14px;padding:11px;border:0;border-radius:9px;background:#1A3A5C;color:#fff;font-size:14.5px;font-weight:700;cursor:pointer}
+.jh92-btn:hover{background:#24507D}
+.jh92-btn[disabled]{opacity:.6;cursor:wait}
+.jh92-err{min-height:18px;color:#B91C1C;font-size:12.5px;margin-top:10px;line-height:1.4}
+.jh92-attente{font-size:13.5px;color:#334155;padding:14px 0 6px}
+.jh92-pied{margin-top:12px;font-size:11.5px;color:#64748B;line-height:1.45;border-top:1px solid #E2E8F0;padding-top:10px}
+</style>
+</head>
+<body>
+<div id="jh92Login">
+  <form class="jh92-carte" id="lnForm" autocomplete="on" novalidate>
+    <h1>JH Estimation Pro</h1>
+    <div class="jh92-sous">Connexion</div>
+    <div id="lnChamps" style="display:none">
+      <label for="lnCourriel">Courriel</label><input type="email" id="lnCourriel" name="email" autocomplete="username" required>
+      <label for="lnMdp">Mot de passe</label><input type="password" id="lnMdp" name="password" autocomplete="current-password" required>
+      <label class="jh92-reste"><input type="checkbox" id="lnReste"> Rester connecté sur ce poste (12 heures)</label>
+      <button type="submit" class="jh92-btn" id="lnGo">Se connecter</button>
+    </div>
+    <div class="jh92-attente" id="lnAttente">Ouverture…</div>
+    <div class="jh92-err" id="lnErr" role="alert"></div>
+    <div class="jh92-pied">Mot de passe oublié ? Demande à un administrateur de le remettre à zéro.</div>
+  </form>
+</div>
+<script>
+/* JH Estimation Pro — page de connexion (lien web, V92, 24 nov. 2026).
+   Cette page ne contient pas le logiciel : après la connexion, elle lit la version courante (table logiciel_version), la
+   télécharge du stockage privé « logiciel » de Supabase (lisible seulement par un usager actif) et l'ouvre dans la page.
+   La session est gardée au même endroit que celle du logiciel : pas de deuxième connexion. Une version déjà téléchargée
+   est gardée sur le poste et resservie tant que l'administrateur n'en publie pas une nouvelle. */
+(function () {
+  'use strict';
+  var PROD = { url: 'https://kupibvsswdxpgvnflmsd.supabase.co', cle: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imt1cGlidnNzd2R4cGd2bmZsbXNkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTU0Mjk5MjgsImV4cCI6MjExMTAwNTkyOH0.JcSs4N_bbUe67kBpVVjHx3ALBzGeBTa99y8yTuCv8aU' };
+  var BANC = location.protocol.indexOf('http') === 0 && /^(127\.0\.0\.1|localhost)$/.test(location.hostname) && !!window.JH92_BANC;
+  var CFG = BANC ? { url: location.origin, cle: 'banc-cle-anon' } : PROD;
+  var K_SES = 'jh92_sb_session', K_COURRIEL = 'jh92_sb_courriel', DUREE = 12 * 3600000;
+  var OBJ = '/storage/v1/object/authenticated/logiciel/';
+  var $ = function (id) { return document.getElementById(id); };
+
+  function erreurLn(t) { $('lnErr').textContent = t || ''; }
+  function attente(t) { $('lnAttente').style.display = t ? '' : 'none'; $('lnAttente').textContent = t || ''; $('lnChamps').style.display = t ? 'none' : ''; }
+  function montrer(raison) {
+    attente(''); erreurLn(raison || '');
+    try { var c = localStorage.getItem(K_COURRIEL); if (c && !$('lnCourriel').value) $('lnCourriel').value = c; } catch (e) { }
+    setTimeout(function () { ($('lnCourriel').value ? $('lnMdp') : $('lnCourriel')).focus(); }, 50);
+  }
+
+  /* session : même format et même place que le logiciel (v92_supabase_end.js) */
+  function lireSes() {
+    var L = [sessionStorage, localStorage];
+    for (var i = 0; i < L.length; i++) {
+      try {
+        var o = JSON.parse(L[i].getItem(K_SES) || 'null');
+        if (!o || !o.refresh_token) continue;
+        if (o.reste && Date.now() - (+o.t || 0) > DUREE) { L[i].removeItem(K_SES); continue; }
+        return o;
+      } catch (e) { }
+    }
+    return null;
+  }
+  function oublierSes() { try { sessionStorage.removeItem(K_SES); localStorage.removeItem(K_SES); } catch (e) { } }
+  function poserSes(j, reste, t, email0) {
+    var o = { access_token: j.access_token, refresh_token: j.refresh_token, expires_at: j.expires_at || (Math.floor(Date.now() / 1000) + (j.expires_in || 3600)),
+      email: String((j.user && j.user.email) || email0 || '').toLowerCase(), t: t || Date.now(), reste: !!reste };
+    try {
+      if (o.reste) { localStorage.setItem(K_SES, JSON.stringify(o)); sessionStorage.removeItem(K_SES); }
+      else { sessionStorage.setItem(K_SES, JSON.stringify(o)); localStorage.removeItem(K_SES); }
+    } catch (e) { }
+    return o;
+  }
+  async function authPost(chemin, corps) {
+    var r;
+    try { r = await fetch(CFG.url + '/auth/v1/' + chemin, { method: 'POST', cache: 'no-store', headers: { apikey: CFG.cle, Authorization: 'Bearer ' + CFG.cle, 'Content-Type': 'application/json' }, body: JSON.stringify(corps) }); }
+    catch (e) { var x = new Error('Supabase est injoignable : vérifie la connexion Internet.'); x.reseau = true; throw x; }
+    var j = null; try { j = await r.json(); } catch (e) { }
+    if (!r.ok) { var y = new Error((j && (j.error_description || j.msg || j.message || j.error)) || ('erreur ' + r.status)); y.status = r.status; y.code = j && (j.error_code || j.error || j.code); throw y; }
+    return j;
+  }
+  async function sessionValide() {
+    var s = lireSes(); if (!s) return null;
+    if (!s.expires_at || s.expires_at * 1000 - Date.now() < 90000) {
+      try { s = poserSes(await authPost('token?grant_type=refresh_token', { refresh_token: s.refresh_token }), s.reste, s.t, s.email); }
+      catch (e) { if (e.reseau) throw e; oublierSes(); return null; }
+    }
+    return s;
+  }
+  async function lire(s, nom) {
+    var r;
+    try { r = await fetch(CFG.url + OBJ + nom, { cache: 'no-store', headers: { apikey: CFG.cle, Authorization: 'Bearer ' + s.access_token } }); }
+    catch (e) { var x = new Error('Supabase est injoignable : vérifie la connexion Internet.'); x.reseau = true; throw x; }
+    if (r.status === 401) { var a = new Error('Ta session a expiré. Reconnecte-toi.'); a.session = true; throw a; }
+    if (!r.ok) { var b = new Error('Le logiciel n\'est pas disponible pour ce compte : aucune version publiée, ou ton accès n\'est pas actif. Communique avec l\'administrateur.'); b.acces = true; throw b; }
+    return r;
+  }
+
+  /* version gardée sur le poste (IndexedDB) */
+  function base() {
+    return new Promise(function (ok, ko) { var q = indexedDB.open('jh92_lanceur', 1); q.onupgradeneeded = function () { q.result.createObjectStore('app'); }; q.onsuccess = function () { ok(q.result); }; q.onerror = function () { ko(q.error); }; });
+  }
+  async function garde(val) {
+    try {
+      var db = await base();
+      return await new Promise(function (ok) {
+        var tx = db.transaction('app', val ? 'readwrite' : 'readonly'), st = tx.objectStore('app');
+        if (val) { st.put(val, 'courant'); tx.oncomplete = function () { ok(true); }; tx.onerror = function () { ok(false); }; }
+        else { var q = st.get('courant'); q.onsuccess = function () { ok(q.result || null); }; q.onerror = function () { ok(null); }; }
+      });
+    } catch (e) { return null; }
+  }
+  async function empreinte(texte) {
+    if (!(window.crypto && crypto.subtle)) return '';
+    var h = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(texte));
+    return Array.from(new Uint8Array(h)).map(function (b) { return b.toString(16).padStart(2, '0'); }).join('');
+  }
+
+  /* version à ouvrir : table logiciel_version (une ligne, lisible seulement par un usager actif) */
+  async function versionCourante(s) {
+    var r;
+    try { r = await fetch(CFG.url + '/rest/v1/logiciel_version?select=chemin,version,empreinte&id=eq.1', { cache: 'no-store', headers: { apikey: CFG.cle, Authorization: 'Bearer ' + s.access_token } }); }
+    catch (e) { var x = new Error('Supabase est injoignable : vérifie la connexion Internet.'); x.reseau = true; throw x; }
+    if (r.status === 401) { var a = new Error('Ta session a expiré. Reconnecte-toi.'); a.session = true; throw a; }
+    var L = r.ok ? await r.json() : [];
+    if (!L || !L.length || !L[0].chemin) { var b = new Error('Le logiciel n\'est pas disponible pour ce compte : aucune version publiée, ou ton accès n\'est pas actif. Communique avec l\'administrateur.'); b.acces = true; throw b; }
+    return L[0];
+  }
+  async function charger(s) {
+    attente('Recherche de la dernière version…');
+    var v = await versionCourante(s);
+    var g = await garde(null), html = null;
+    if (g && g.version === v.version && g.empreinte === v.empreinte && g.html) html = g.html;
+    else {
+      attente('Téléchargement du logiciel (version du ' + v.version + ')…');
+      html = await (await lire(s, v.chemin.split('/').map(encodeURIComponent).join('/'))).text();
+      var e = await empreinte(html);
+      if (!e || e === v.empreinte) await garde({ version: v.version, empreinte: v.empreinte, html: html });   // publication en cours : pas gardé, relu la prochaine fois
+    }
+    attente('Ouverture du logiciel…');
+    setTimeout(function () { document.open(); document.write(html); document.close(); }, 0);
+  }
+  async function partir(s) {
+    try { await charger(s); }
+    catch (e) {
+      if (e.session) { oublierSes(); montrer(e.message); return; }
+      if (e.acces) { oublierSes(); }
+      montrer(e.message || String(e));
+    }
+  }
+
+  $('lnForm').addEventListener('submit', async function (ev) {
+    ev.preventDefault();
+    var c = $('lnCourriel'), p = $('lnMdp'), b = $('lnGo');
+    var email = String(c.value || '').trim().toLowerCase(), mdp = String(p.value || ''), reste = !!$('lnReste').checked;
+    if (!email || email.indexOf('@') < 0) { erreurLn('Entre ton courriel.'); c.focus(); return; }
+    if (!mdp) { erreurLn('Entre ton mot de passe.'); p.focus(); return; }
+    b.disabled = true; erreurLn('');
+    try {
+      attente('Connexion…');
+      var s = poserSes(await authPost('token?grant_type=password', { email: email, password: mdp }), reste, 0, email);
+      p.value = '';
+      try { localStorage.setItem(K_COURRIEL, email); } catch (e) { }
+      await partir(s);
+    } catch (e) {
+      p.value = '';
+      if (e.reseau) montrer(e.message);
+      else if (e.code === 'invalid_credentials' || e.code === 'invalid_grant' || e.status === 400) montrer('Courriel ou mot de passe incorrect.');
+      else if (e.code === 'email_not_confirmed') montrer('Ce courriel n\'est pas encore confirmé. Communique avec l\'administrateur.');
+      else montrer('Connexion impossible : ' + (e.message || e));
+    } finally { b.disabled = false; }
+  });
+
+  (async function demarrer() {
+    if (!BANC && /__SB_/.test(PROD.url + PROD.cle)) { montrer('Ce lanceur n\'a pas l\'adresse de Supabase (montage incomplet).'); $('lnGo').disabled = true; return; }
+    try { var s = await sessionValide(); if (s) await partir(s); else montrer(); }
+    catch (e) { montrer(e.message || String(e)); }
+  })();
+})();
+</script>
+</body>
+</html>
