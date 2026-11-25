@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="fr-CA">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="referrer" content="no-referrer">
+<meta name="robots" content="noindex">
+<title>Connexion Microsoft 365 — JH Estimation Pro</title>
+<!--
+  JH Estimation Pro V94 · courriels94 (24 nov. 2026) : page de retour de la connexion Microsoft 365 (OAuth 2.0 « code + PKCE »).
+  Publiée à côté de la page du logiciel (https://jhoulecrjh.github.io/jh-estimation-pro-app/auth.html) : c'est l'« URI de redirection »
+  de l'application inscrite dans Entra (plateforme « Application monopage (SPA) »).
+  Elle ne garde rien et n'appelle personne : elle renvoie code / state / error à la fenêtre du logiciel qui l'a ouverte
+  (même origine seulement : postMessage vers location.origin, et BroadcastChannel qui ne joint que les pages de la même origine),
+  efface le code de son adresse, puis se ferme. Le logiciel vérifie l'origine et le « state » ; le code ne sert qu'une fois,
+  et seulement avec le code_verifier gardé par le logiciel (PKCE).
+-->
+<style>
+  html,body{margin:0;height:100%;font-family:"Segoe UI",Calibri,Arial,sans-serif;background:#0F2740;color:#1A3A5C}
+  body{display:flex;align-items:center;justify-content:center}
+  .carte{background:#fff;border-radius:14px;padding:26px 30px;max-width:420px;width:calc(100% - 40px);box-shadow:0 18px 50px rgba(0,0,0,.35)}
+  h1{font-size:19px;margin:0 0 8px;color:#1A3A5C}
+  p{font-size:14px;line-height:1.5;margin:6px 0;color:#334155}
+  .err{color:#B91C1C}
+</style>
+</head>
+<body>
+<div class="carte">
+  <h1>Connexion Microsoft 365</h1>
+  <p id="msg">Retour au logiciel…</p>
+</div>
+<script>
+(function () {
+  'use strict';
+  var q = new URLSearchParams(location.search), h = new URLSearchParams(String(location.hash || '').replace(/^#/, ''));
+  var lire = function (k) { return q.get(k) || h.get(k) || ''; };
+  var r = { type: 'jh94-ms-auth', code: lire('code'), state: lire('state'), error: lire('error'), error_description: lire('error_description') };
+  try { history.replaceState(null, '', location.pathname); } catch (e) { }   // le code ne reste ni dans l'adresse ni dans l'historique
+  var msg = document.getElementById('msg'), envoye = false;
+  if (!r.code && !r.error) { msg.textContent = 'Aucune réponse de Microsoft. Tu peux fermer cette fenêtre.'; return; }
+  try { if (window.opener && !window.opener.closed) { window.opener.postMessage(r, location.origin); envoye = true; } } catch (e) { }
+  try { var bc = new BroadcastChannel('jh94-ms-auth'); bc.postMessage(r); envoye = true; setTimeout(function () { try { bc.close(); } catch (e) { } }, 1500); } catch (e) { }
+  if (r.error) { msg.className = 'err'; msg.textContent = 'Microsoft a refusé la connexion : ' + (r.error_description || r.error); }
+  else msg.textContent = envoye ? 'Connexion reçue. Cette fenêtre va se fermer.' : 'Connexion reçue, mais la fenêtre du logiciel est introuvable : recommence depuis le logiciel.';
+  setTimeout(function () { try { window.close(); } catch (e) { } }, r.error ? 4000 : 600);
+})();
+</script>
+</body>
+</html>
